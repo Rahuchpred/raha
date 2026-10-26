@@ -1,0 +1,24 @@
+.frame {
+  --rail: max(var(--page-pad), calc(50% - var(--col-demo) / 2));
+  position: relative;
+}
+
+.frame::before,
+.frame::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.frame::before {
+  left: var(--rail);
+}
+
+.frame::after {
+  left: calc(100% - var(--rail) - 1px);
+}

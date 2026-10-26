@@ -1,0 +1,157 @@
+/* Shared section frame, after Stripe and Mintlify: every section below the
+   hero sits between two vertical rails, starts on a full-width hairline. Content inside lines up to
+   the rails, so grids share their edges with the frame. */
+
+.section {
+  --rail: max(var(--page-pad), calc(50% - var(--col-demo) / 2));
+  position: relative;
+  padding: var(--section-pad) var(--page-pad);
+  border-top: 1px solid var(--border);
+}
+
+
+/* a grid of cells that share hairlines: 1px gaps over a line-colored
+   backdrop, outer edges carried by the rails */
+.cells {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.cells > * {
+  background: var(--bg);
+}
+
+/* a section that ends on a grid row: no air under it, the row's bottom edge
+   is the next section's top line, so the frame never shows an empty band */
+.endsOnGrid {
+  padding-bottom: 0;
+}
+
+.endsOnGrid .cells:last-child {
+  border-bottom: 0;
+}
+
+/* a section whose content is itself a full-bleed band between the hairlines */
+.flush {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* left-aligned text inside the rails keeps the cell inset */
+.inset {
+  padding-left: var(--cell-pad);
+  padding-right: var(--cell-pad);
+}
+
+.inner {
+  max-width: var(--col-demo);
+  margin: 0 auto;
+}
+
+.head {
+  max-width: var(--col-text);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.headLeft {
+  text-align: left;
+  margin: 0;
+}
+
+.h2 {
+  font-family: var(--serif);
+  font-size: var(--h2);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: var(--row-gap);
+  font-size: var(--lead);
+  line-height: 1.625;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.body {
+  margin-top: var(--shell-gap);
+}
+
+.h3 {
+  font-size: var(--body);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.p {
+  font-size: var(--body);
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  height: 44px;
+  padding: 0 24px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--body);
+  white-space: nowrap;
+  transition: transform 150ms var(--ease-out), filter 150ms ease;
+}
+
+.btnPrimary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+}
+
+.btnSecondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-fg);
+}
+
+@media (hover: hover) {
+  .btnPrimary:hover,
+  .btnSecondary:hover {
+    filter: brightness(1.08);
+  }
+}
+
+.btnPrimary:active,
+.btnSecondary:active {
+  transform: scale(0.97);
+}
+
+.buttons {
+  display: flex;
+  gap: var(--row-gap);
+  flex-wrap: wrap;
+}
+
+.cite {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 2px;
+}
