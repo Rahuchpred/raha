@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // node tools/record.mjs out.mp4 [--layout sequence|grid] [--size 1080x1080]
-//   [--scenes a,b,c] [--title "SVG Vector"] [--theme light|dark] [--fps 60]
+//   [--scenes a,b,c] [--title "SVG Vector Skill"] [--theme light|dark] [--fps 60] [--music]
 //
 // A demo video: a title card, then the figures. `sequence` (default, square)
 // shows one figure at a time, full frame: it fades in, the cursor plays its
@@ -31,7 +31,7 @@ const args = process.argv.slice(2)
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d }
 const out = resolve(args.find((a) => a.endsWith('.mp4')) || 'svg-vector.mp4')
 const scenes = opt('--scenes', 'triage,command,rack,sync,insights,earth').split(',').map((s) => s.replace(/\.mjs$/, '') + '.mjs')
-const title = opt('--title', 'SVG Vector')
+const title = opt('--title', 'SVG Vector Skill')
 const themeName = opt('--theme', 'light')
 const FPS = +opt('--fps', 60)
 const layout = opt('--layout', 'sequence')
@@ -258,4 +258,13 @@ for (let f = 0; f < timeline.length; f++) {
 ff.stdin.end()
 await new Promise((r) => ff.on('close', r))
 await browser.close()
+
+// --music: synthesize an original lofi bed the length of the video and mux it.
+if (args.includes('--music')) {
+  const run = (cmd, a) => new Promise((res, rej) => spawn(cmd, a, { stdio: 'inherit' }).on('close', (c) => (c ? rej(new Error(cmd + ' ' + c)) : res())))
+  const wav = join(dir, 'lofi.wav'), tmp = join(dir, 'video.mp4')
+  await run('node', [join(here, 'lofi.mjs'), wav, '--seconds', String(timeline.length / FPS)])
+  await run('mv', [out, tmp])
+  await run('ffmpeg', ['-y', '-loglevel', 'error', '-i', tmp, '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out])
+}
 console.log(`\n${out}`)
