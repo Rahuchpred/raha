@@ -1,9 +1,14 @@
 #!/usr/bin/env node
-// node tools/lofi.mjs out.wav [--preset rain|dusk] [--seconds 36] [--bpm n] [--seed 7]
+// node tools/lofi.mjs out.wav [--preset drift|rain|dusk] [--seconds 36] [--bpm n] [--seed 7]
 //
 // An original lofi bed for demo videos, synthesized from nothing, so it is
 // free to post anywhere. Low-passed, gently saturated, faded in and out.
-//   rain (default)  84 bpm, A minor: plucked-guitar arpeggios over Am9 D9
+//   drift (default) 66 bpm, the calm one: felt-piano chords with slow
+//                   attacks over Dmaj9 Bm9 Gmaj9 Em9, a few soft melody
+//                   notes, a warm pad and sub, a muffled kick and a brushed
+//                   swell (no clicks, hats or shakers), a smooth rain wash,
+//                   a dark low-pass and a little reverb. Mixed quieter.
+//   rain            84 bpm, A minor: plucked-guitar arpeggios over Am9 D9
 //                   Gmaj9 Em7, a sparse pentatonic melody, a warm pad, a
 //                   syncopated kick, rimshot, shaker, rain ambience.
 //   dusk            72 bpm: electric-piano sevenths (Fmaj7 Em7 Dm7 Cmaj7),
@@ -16,8 +21,8 @@ const args = process.argv.slice(2)
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d }
 const out = args.find((a) => a.endsWith('.wav')) || 'lofi.wav'
 const SECONDS = +opt('--seconds', 36)
-const PRESET = opt('--preset', 'rain')
-const BPM = +opt('--bpm', PRESET === 'dusk' ? 72 : 84)
+const PRESET = opt('--preset', 'drift')
+const BPM = +opt('--bpm', { dusk: 72, rain: 84, drift: 66 }[PRESET] || 66)
 let seed = +opt('--seed', 7)
 const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) // repeatable noise
 
@@ -164,11 +169,78 @@ function rain() {
   }
 }
 
-;(PRESET === 'dusk' ? dusk : rain)()
+
+// Felt piano: a soft hammer (slow attack), a long decay, a quick-fading
+// second harmonic, and a slight detuned double for warmth. No sharp edge.
+const felt = (t, m, vel, len, pan) => {
+  const f = hz(m)
+  add(t, len, pan, (x) => {
+    const env = Math.min(1, x / 0.045) * Math.exp(-x / 2.6) * Math.min(1, (len - x) / 0.6)
+    const w = 2 * Math.PI * f * x
+    return vel * env * (Math.sin(w) + 0.45 * Math.sin(w * 1.0015) + 0.12 * Math.exp(-x / 0.35) * Math.sin(2 * w))
+  })
+}
+const softKick = (t) => add(t, 0.5, 0, (x) => {
+  const f = 42 + 30 * Math.exp(-x / 0.05)
+  return 0.32 * Math.min(1, x / 0.006) * Math.exp(-x / 0.22) * Math.sin(2 * Math.PI * f * x)
+})
+// A brushed swell: noise that fades in and out instead of cracking.
+const brush = (t) => {
+  let a = 0, b = 0
+  const kl = 1 - Math.exp((-2 * Math.PI * 2600) / SR), kh = 1 - Math.exp((-2 * Math.PI * 500) / SR)
+  add(t, 0.42, 0.1, (x) => {
+    const w = rand() * 2 - 1
+    a += kl * (w - a); b += kh * (a - b)
+    const env = Math.min(1, x / 0.06) * Math.exp(-x / 0.14)
+    return 0.16 * env * (a - b)
+  })
+}
+
+function drift() {
+  // Dmaj9 Bm9 Gmaj9 Em9, close voicings in the middle of the piano.
+  const CH = [[54, 57, 61, 64], [50, 54, 57, 61], [54, 57, 59, 62], [50, 54, 55, 59]]
+  const RT = [38, 35, 43, 40]
+  // A few melody notes per bar, from D major pentatonic: [bar, beat, note].
+  const MEL = [[0, 2, 73], [0, 3.5, 71], [1, 1, 69], [1, 2.5, 66], [2, 2, 71], [2, 3, 74], [3, 1.5, 71], [3, 3, 69]]
+  const bars = Math.ceil(SECONDS / bar) + 1
+  for (let b = 0; b < bars; b++) {
+    const t0 = b * bar, c = CH[b % 4]
+    // The chord, rolled slowly from the bottom, held into the next bar.
+    c.forEach((m, i) => felt(t0 + i * 0.06, m, 0.13, bar + 0.8, -0.45 + i * 0.3))
+    pad(t0, [RT[b % 4] + 12, RT[b % 4] + 19], bar + 1, 0.035)
+    add(t0, bar, 0, (x) => 0.22 * Math.min(1, x / 0.08) * Math.min(1, (bar - x) / 0.3) * Math.sin(2 * Math.PI * hz(RT[b % 4]) * x)) // sub
+    MEL.filter(([mb]) => mb === b % 4).forEach(([, bt, m]) => b > 0 && felt(t0 + bt * beat, m, 0.075, beat * 2.5, 0.3))
+    if (b === 0) continue // the title card opens on the piano alone
+    softKick(t0); softKick(t0 + beat * 2.5)
+    brush(t0 + beat); brush(t0 + beat * 3)
+  }
+  // Rain: a smooth wash, no drops.
+  let w = 0, w2 = 0
+  for (let i = 0; i < N; i++) {
+    const n = rand() * 2 - 1
+    w += 0.05 * (n - w); w2 += 0.5 * (w - w2)
+    const v = (w - w2 * 0.7) * 0.035
+    L[i] += v; R[i] += v * 0.92
+  }
+  // A little room: two damped feedback delays per side, mixed in low.
+  const room = (buf, d1, d2) => {
+    const a = new Float32Array(buf), n1 = Math.round(d1 * SR), n2 = Math.round(d2 * SR)
+    let lp = 0
+    for (let i = 0; i < N; i++) {
+      const fb = (i >= n1 ? a[i - n1] : 0) * 0.42 + (i >= n2 ? a[i - n2] : 0) * 0.3
+      lp += 0.25 * (fb - lp)
+      a[i] = buf[i] + lp
+    }
+    for (let i = 0; i < N; i++) buf[i] = buf[i] * 0.8 + (a[i] - buf[i]) * 0.55
+  }
+  room(L, 0.113, 0.271); room(R, 0.127, 0.293)
+}
+
+;({ dusk, rain, drift }[PRESET] || drift)()
 
 // Master: low-pass for the warm lofi top end, soft saturation, fades, then
 // normalise to -3 dBFS.
-const LP = 1 - Math.exp((-2 * Math.PI * 3400) / SR)
+const LP = 1 - Math.exp((-2 * Math.PI * (PRESET === 'drift' ? 2100 : 3400)) / SR)
 let fl = 0, fr = 0, peak = 0
 for (let i = 0; i < N; i++) {
   fl += LP * (L[i] - fl); fr += LP * (R[i] - fr)
@@ -177,7 +249,7 @@ for (let i = 0; i < N; i++) {
   L[i] = Math.tanh(fl * 1.4) * Math.max(0, fade); R[i] = Math.tanh(fr * 1.4) * Math.max(0, fade)
   peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]))
 }
-const g = 0.708 / (peak || 1)
+const g = (PRESET === 'drift' ? 0.56 : 0.708) / (peak || 1) // drift peaks at -5 dBFS, the others at -3
 
 // 16-bit stereo WAV.
 const buf = Buffer.alloc(44 + N * 4)

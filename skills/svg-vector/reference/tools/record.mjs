@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // node tools/record.mjs out.mp4 [--layout sequence|grid] [--size 1080x1080]
 //   [--scenes a,b,c] [--title "SVG Vector Skill"] [--byline "by raha"] [--theme light|dark]
-//   [--fps 60] [--music [rain|dusk]]
+//   [--fps 60] [--music [drift|rain|dusk]]
 //
 // A demo video: a title card, then the figures. `sequence` (default, square)
 // shows one figure at a time, full frame: it fades in, the cursor plays its
@@ -267,7 +267,7 @@ if (args.includes('--music')) {
   const run = (cmd, a) => new Promise((res, rej) => spawn(cmd, a, { stdio: 'inherit' }).on('close', (c) => (c ? rej(new Error(cmd + ' ' + c)) : res())))
   const wav = join(dir, 'lofi.wav'), tmp = join(dir, 'video.mp4')
   const next = args[args.indexOf('--music') + 1]
-  const preset = next && !next.startsWith('--') && !next.endsWith('.mp4') ? next : 'rain'
+  const preset = next && !next.startsWith('--') && !next.endsWith('.mp4') ? next : 'drift'
   await run('node', [join(here, 'lofi.mjs'), wav, '--preset', preset, '--seconds', String(timeline.length / FPS)])
   await run('mv', [out, tmp])
   await run('ffmpeg', ['-y', '-loglevel', 'error', '-i', tmp, '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out])
