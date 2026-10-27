@@ -1,18 +1,23 @@
 #!/usr/bin/env node
-// node tools/lofi.mjs out.wav [--seconds 36] [--bpm 72] [--seed 7]
+// node tools/lofi.mjs out.wav [--preset rain|dusk] [--seconds 36] [--bpm n] [--seed 7]
 //
 // An original lofi bed for demo videos, synthesized from nothing, so it is
-// free to post anywhere: soft electric-piano sevenths (Fmaj7 Em7 Dm7 Cmaj7),
-// a warm bass, a dusty kick and snare with swung hats, vinyl crackle, all
-// low-passed and gently saturated. Fades in and out over the length.
-// record.mjs --music mixes it under the video.
+// free to post anywhere. Low-passed, gently saturated, faded in and out.
+//   rain (default)  84 bpm, A minor: plucked-guitar arpeggios over Am9 D9
+//                   Gmaj9 Em7, a sparse pentatonic melody, a warm pad, a
+//                   syncopated kick, rimshot, shaker, rain ambience.
+//   dusk            72 bpm: electric-piano sevenths (Fmaj7 Em7 Dm7 Cmaj7),
+//                   a warm bass, kick and snare with swung hats, vinyl.
+// Use a different preset (or --seed) from the last video so tracks differ.
+// record.mjs --music [preset] mixes it under the video.
 import { writeFileSync } from 'node:fs'
 
 const args = process.argv.slice(2)
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d }
 const out = args.find((a) => a.endsWith('.wav')) || 'lofi.wav'
 const SECONDS = +opt('--seconds', 36)
-const BPM = +opt('--bpm', 72)
+const PRESET = opt('--preset', 'rain')
+const BPM = +opt('--bpm', PRESET === 'dusk' ? 72 : 84)
 let seed = +opt('--seed', 7)
 const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) // repeatable noise
 
@@ -68,6 +73,7 @@ const snare = (t) => {
 }
 const hat = (t, g) => noise(t, 0.06, 0.018, 9000, 5000, g, 0.25)
 
+function dusk() {
 const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]]
 const ROOTS = [41, 40, 38, 36]
 const bars = Math.ceil(SECONDS / bar) + 1
@@ -93,6 +99,72 @@ for (let i = 0; i < N; i++) {
   if (rand() < 0.00018) v += (rand() * 2 - 1) * 0.25
   L[i] += v; R[i] += v * 0.9
 }
+}
+
+// Plucked string (Karplus-Strong): a burst of noise in a delay line the
+// length of one period, averaged a little each pass so it rings and darkens.
+const pluck = (t, m, vel, len, pan, damp = 0.996) => {
+  const p = Math.max(2, Math.round(SR / hz(m)))
+  const line = Float32Array.from({ length: p }, () => rand() * 2 - 1)
+  let i = 0, prev = 0
+  add(t, len, pan, (x) => {
+    const a = line[i], b = line[(i + 1) % p]
+    const v = damp * 0.5 * (a + b)
+    line[i] = v; i = (i + 1) % p
+    prev += 0.45 * (v - prev) // soften the attack's top end
+    const tail = x > len - 0.12 ? (len - x) / 0.12 : 1
+    return vel * prev * tail
+  })
+}
+// Pad: a root and fifth with a slow swell, detuned for width.
+const pad = (t, notes, len, vel) => notes.forEach((m, k) => {
+  const f = hz(m)
+  add(t, len, k % 2 ? 0.35 : -0.35, (x) => {
+    const env = Math.min(1, x / 0.9) * Math.min(1, (len - x) / 0.8)
+    return vel * env * (Math.sin(2 * Math.PI * f * x) + 0.5 * Math.sin(2 * Math.PI * f * 1.004 * x))
+  })
+})
+const rim = (t) => {
+  noise(t, 0.08, 0.018, 3800, 1800, 0.3, -0.1)
+  add(t, 0.06, -0.1, (x) => 0.12 * Math.exp(-x / 0.012) * Math.sin(2 * Math.PI * 820 * x))
+}
+const shaker = (t, g) => noise(t, 0.07, 0.03, 7500, 3500, g, 0.3)
+
+function rain() {
+  // Am9 D9 Gmaj9 Em7, voiced up top; roots in the bass.
+  const CH = [[60, 64, 67, 71], [60, 64, 66, 69], [59, 62, 66, 69], [59, 62, 67, 71]]
+  const RT = [45, 38, 43, 40]
+  // A sparse melody from A minor pentatonic: [bar-in-loop, eighth, note].
+  const MEL = [[0, 4, 76], [0, 6, 74], [1, 3, 72], [1, 7, 69], [2, 2, 74], [2, 5, 76], [2, 6, 79], [3, 4, 76], [3, 7, 72]]
+  const bars = Math.ceil(SECONDS / bar) + 1
+  const sw = beat * 0.11 // swing on the off-eighths
+  for (let b = 0; b < bars; b++) {
+    const t0 = b * bar, c = CH[b % 4]
+    pad(t0, [c[0] - 12, c[2] - 12], bar + 0.6, 0.05)
+    // Arpeggio up and down the chord in eighths.
+    const order = [0, 1, 2, 3, 2, 1, 2, 3]
+    order.forEach((k, e) => pluck(t0 + e * (beat / 2) + (e % 2 ? sw : 0), c[k] - 12, e === 0 ? 0.5 : 0.36, beat * 1.6, -0.4 + k * 0.27, 0.9965))
+    if (b > 0) MEL.filter(([mb]) => mb === b % 4).forEach(([, e, m]) => pluck(t0 + e * (beat / 2) + (e % 2 ? sw : 0), m, 0.42, beat * 2, 0.25, 0.998))
+    bass(t0, RT[b % 4], beat * 1.4)
+    bass(t0 + beat * 1.75, RT[b % 4], beat * 0.6)
+    bass(t0 + beat * 3, RT[b % 4] + 7, beat * 0.9)
+    if (b === 0) continue // the title card opens on the guitar alone
+    kick(t0); kick(t0 + beat * 1.75); kick(t0 + beat * 2.5)
+    rim(t0 + beat); rim(t0 + beat * 3)
+    for (let e = 0; e < 16; e++) shaker(t0 + e * (beat / 4) + (e % 2 ? beat * 0.05 : 0), e % 4 === 2 ? 0.05 : 0.028)
+  }
+  // Rain: a soft wash of filtered noise and scattered drops.
+  let w = 0, w2 = 0
+  for (let i = 0; i < N; i++) {
+    const n = rand() * 2 - 1
+    w += 0.08 * (n - w); w2 += 0.6 * (w - w2)
+    let v = (w - w2 * 0.6) * 0.05
+    if (rand() < 0.0009) v += (rand() * 2 - 1) * 0.05
+    L[i] += v; R[i] += v * (0.8 + 0.2 * Math.sin(i / SR))
+  }
+}
+
+;(PRESET === 'dusk' ? dusk : rain)()
 
 // Master: low-pass for the warm lofi top end, soft saturation, fades, then
 // normalise to -3 dBFS.
