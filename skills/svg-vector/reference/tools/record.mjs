@@ -1,8 +1,11 @@
 #!/usr/bin/env node
-// node tools/record.mjs out.mp4 [--scenes a,b,c] [--title "SVG Vector"] [--theme light|dark] [--fps 60]
+// node tools/record.mjs out.mp4 [--layout sequence|grid] [--size 1080x1080]
+//   [--scenes a,b,c] [--title "SVG Vector"] [--theme light|dark] [--fps 60]
 //
-// A demo video: a title card, then the figures in a grid while a cursor
-// hovers each one in turn. Frame-exact: a fake clock is installed before the
+// A demo video: a title card, then the figures. `sequence` (default, square)
+// shows one figure at a time, full frame: it fades in, the cursor plays its
+// gesture, it fades out, the next comes. `grid` (16:9) shows them all at once
+// while the cursor visits each in turn. Frame-exact: a fake clock is installed before the
 // page loads. requestAnimationFrame and performance.now run on it, and every
 // CSS animation, CSS transition and Web Animation is paused and set to the
 // clock each frame, so one capture is one frame however slow the capture
@@ -31,7 +34,10 @@ const scenes = opt('--scenes', 'triage,command,rack,sync,insights,earth').split(
 const title = opt('--title', 'SVG Vector')
 const themeName = opt('--theme', 'light')
 const FPS = +opt('--fps', 60)
-const W = 1920, H = 1080, COLS = 3, ROWS = Math.ceil(scenes.length / 3)
+const layout = opt('--layout', 'sequence')
+const [W, H] = opt('--size', layout === 'grid' ? '1920x1080' : '1080x1080').split('x').map(Number)
+const COLS = 3, ROWS = Math.ceil(scenes.length / 3)
+const TITLE_END = 3.1 // the title card owns the opening seconds
 
 // The page palette. Light is raha.site's paper and ink.
 const PAGE = themeName === 'dark'
@@ -57,12 +63,18 @@ const html = `<!doctype html><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@500&display=block" rel="stylesheet">
 <style>
 html,body{margin:0;width:${W}px;height:${H}px;overflow:hidden;background:${PAGE.bg}}
+${layout === 'grid' ? `
 .grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(${COLS},1fr);grid-template-rows:repeat(${ROWS},1fr);opacity:0;animation:show .7s cubic-bezier(.22,.61,.36,1) 2.5s forwards}
 figure{margin:0;display:grid;place-items:center;border-right:1.5px solid ${PAGE.rule};border-bottom:1.5px solid ${PAGE.rule}}
 figure:nth-child(${COLS}n){border-right:none}figure:nth-last-child(-n+${COLS}){border-bottom:none}
-figure svg{width:66%;height:auto;max-height:78%}
+figure svg{width:66%;height:auto;max-height:78%}` : `
+.grid{position:absolute;inset:0}
+figure{position:absolute;inset:0;margin:0;display:grid;place-items:center;opacity:0;pointer-events:none;filter:blur(8px);transition:opacity .5s cubic-bezier(.22,.61,.36,1),filter .5s cubic-bezier(.22,.61,.36,1)}
+figure.on{opacity:1;pointer-events:auto;filter:none}
+figure:not(.on) *{pointer-events:none!important}
+figure svg{width:72%;height:auto;max-height:72%}`}
 .title{position:absolute;inset:0;display:grid;place-items:center;background:${PAGE.bg};animation:hide .6s cubic-bezier(.77,0,.175,1) 2.3s forwards}
-.title h1{margin:0;font:500 112px/1 Inter,system-ui,sans-serif;letter-spacing:-.045em;color:${PAGE.fg};filter:blur(14px);opacity:0;transform:translateY(10px);animation:blurin .9s cubic-bezier(.22,.61,.36,1) .25s forwards}
+.title h1{margin:0;font:500 ${layout === 'grid' ? 112 : 96}px/1 Inter,system-ui,sans-serif;letter-spacing:-.045em;color:${PAGE.fg};filter:blur(14px);opacity:0;transform:translateY(10px);animation:blurin .9s cubic-bezier(.22,.61,.36,1) .25s forwards}
 @keyframes blurin{to{filter:blur(0);opacity:1;transform:none}}
 @keyframes hide{to{opacity:0;visibility:hidden}}
 @keyframes show{to{opacity:1}}
@@ -147,42 +159,69 @@ const pts = await page.evaluate((targets) => {
   const hit = (n, i) => (targets[n] ? onScreen(n, i) : visible(fig(n).querySelector(`.iso-hit [data-i="${i}"]`)))
   const box = (n) => { const r = fig(n).getBoundingClientRect(); return [r.left, r.top, r.width, r.height] }
   const card = document.querySelector('.title')
-  card.style.display = 'none' // measure the grid, not the title card above it
+  card.style.display = 'none' // measure the figures, not the title card above them
+  const figs = [...document.querySelectorAll('figure')]
+  const solo = (n) => figs.forEach((f) => {
+    f.style.transition = 'none'
+    f.classList.toggle('on', n === null || f.dataset.scene === n + '.mjs')
+  })
+  const sequence = !document.querySelector('.grid').style.gridTemplateColumns && getComputedStyle(figs[0]).position === 'absolute'
+  const measure = (n, fn) => { if (sequence) solo(n); const v = fn(); return v }
   const out = {}
-  if (fig('triage')) out.triage = centre(fig('triage'))
-  if (fig('command')) out.command = [0, 6, 3].map((i) => hit('command', i))
-  if (fig('rack')) out.rack = [0, 1, 2, 3, 4].map((i) => hit('rack', i))
-  if (fig('sync')) out.sync = centre(fig('sync'))
-  if (fig('insights')) { const [x, y, w, h] = box('insights'); out.insights = [[x + w * 0.3, y + h * 0.42], [x + w * 0.55, y + h * 0.35], [x + w * 0.7, y + h * 0.55], [x + w * 0.45, y + h * 0.62], [x + w * 0.5, y + h * 0.47]] }
-  if (fig('earth')) { const g = fig('earth').querySelector('[data-id="earth"]'); out.earth = centre(g) }
+  if (fig('triage')) out.triage = measure('triage', () => centre(fig('triage')))
+  if (fig('command')) out.command = measure('command', () => [0, 6, 3].map((i) => hit('command', i)))
+  if (fig('rack')) out.rack = measure('rack', () => [0, 1, 2, 3, 4].map((i) => hit('rack', i)))
+  if (fig('sync')) out.sync = measure('sync', () => centre(fig('sync')))
+  if (fig('insights')) out.insights = measure('insights', () => { const [x, y, w, h] = box('insights'); return [[x + w * 0.3, y + h * 0.42], [x + w * 0.55, y + h * 0.35], [x + w * 0.7, y + h * 0.55], [x + w * 0.45, y + h * 0.62], [x + w * 0.5, y + h * 0.47]] })
+  if (fig('earth')) out.earth = measure('earth', () => centre(fig('earth').querySelector('[data-id="earth"]')))
+  if (sequence) { figs.forEach((f) => { f.classList.remove('on') }); void document.body.offsetHeight; figs.forEach((f) => { f.style.transition = '' }) }
   card.style.display = ''
   return out
 }, targets)
 
 // --------------------------------------------------------------- script
-// Each step: move to a point over `t` seconds (eased), then hold `hold`.
+// A step moves the cursor to p over t seconds (eased), then holds. `show`
+// (sequence only) names the figure to fade in at that step's first frame,
+// or null to fade the current one out.
 const steps = []
 const go = (p, t, hold = 0) => steps.push({ p, t, hold })
-const park = [W - 60, H + 40] // below the frame: the cursor enters from the bottom
-let start = 3.1 // the title card owns the first 3.1s
-if (pts.triage) go(pts.triage, 0.8, 1.9)
-if (pts.command) { go(pts.command[0], 0.6, 0.75); go(pts.command[1], 0.38, 0.85); go(pts.command[2], 0.32, 0.6) }
-if (pts.rack) { go(pts.rack[0], 0.6, 0.6); pts.rack.slice(1).forEach((p) => go(p, 0.32, 0.5)) }
-if (pts.sync) go(pts.sync, 0.6, 2.5)
-if (pts.insights) { go(pts.insights[0], 0.6, 0.15); pts.insights.slice(1).forEach((p) => go(p, 0.55, 0.05)) }
-if (pts.earth) go(pts.earth, 0.6, 3.0)
-go(park, 0.9, 1.3)
+const wait = (t, show) => steps.push({ p: null, t: 0, hold: t, show })
+const gesture = {
+  triage: () => go(pts.triage, 0.7, 1.9),
+  command: () => { go(pts.command[0], 0.6, 0.75); go(pts.command[1], 0.38, 0.85); go(pts.command[2], 0.32, 0.6) },
+  rack: () => { go(pts.rack[0], 0.6, 0.6); pts.rack.slice(1).forEach((p) => go(p, 0.32, 0.5)) },
+  sync: () => go(pts.sync, 0.6, 2.6),
+  insights: () => { go(pts.insights[0], 0.6, 0.15); pts.insights.slice(1).forEach((p) => go(p, 0.55, 0.05)) },
+  earth: () => go(pts.earth, 0.6, 3.2),
+}
+const names = scenes.map((f) => f.replace('.mjs', '')).filter((n) => gesture[n] && pts[n])
+const park = layout === 'grid' ? [W - 60, H + 40] : [W - 96, H - 84]
+if (layout === 'grid') {
+  names.forEach((n) => gesture[n]())
+  go(park, 0.9, 1.3)
+} else {
+  names.forEach((n, i) => {
+    wait(i === 0 ? 0.55 : 0.45, n) // fade in
+    gesture[n]()
+    go(park, 0.55, 0.35) // step off: the figure settles back to rest
+    wait(0.45, null) // fade out
+  })
+  wait(0.4, names[0]) // end on the first figure, at rest, so a loop is seamless-ish
+  wait(0.6)
+}
 
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2)
-const timeline = [] // per frame: cursor position or null
-const dt = 1 / FPS
-for (let t = 0; t < start; t += dt) timeline.push(null)
-let from = park
+const timeline = [] // per frame: { p: cursor or null, show?: figure | null }
+for (let t = 0; t < TITLE_END; t += 1 / FPS) timeline.push({ p: null })
+let from = layout === 'grid' ? park : [W - 96, H + 40] // first entry: up from below the frame
 for (const s of steps) {
-  const n = Math.max(1, Math.round(s.t * FPS))
-  for (let k = 1; k <= n; k++) { const u = ease(k / n); timeline.push([from[0] + (s.p[0] - from[0]) * u, from[1] + (s.p[1] - from[1]) * u]) }
-  for (let k = 0; k < Math.round(s.hold * FPS); k++) timeline.push(s.p)
-  from = s.p
+  const first = timeline.length
+  const n = s.p ? Math.max(1, Math.round(s.t * FPS)) : 0
+  for (let k = 1; k <= n; k++) { const u = ease(k / n); timeline.push({ p: [from[0] + (s.p[0] - from[0]) * u, from[1] + (s.p[1] - from[1]) * u] }) }
+  for (let k = 0; k < Math.round(s.hold * FPS); k++) timeline.push({ p: s.p || from })
+  if (s.p) from = s.p
+  if ('show' in s && timeline[first]) timeline[first].show = s.show
+  if (s.show !== undefined && !s.p && timeline.length === first) timeline.push({ p: from, show: s.show })
 }
 
 // ---------------------------------------------------------------- record
@@ -193,7 +232,10 @@ const step = (ms) => page.evaluate((ms) => window.__clock.step(ms), ms)
 
 let shown = false, last = null
 for (let f = 0; f < timeline.length; f++) {
-  const p = timeline[f]
+  const { p, show } = timeline[f]
+  if (show !== undefined) {
+    await page.evaluate((n) => document.querySelectorAll('figure').forEach((el) => el.classList.toggle('on', n !== null && el.dataset.scene === n + '.mjs')), show)
+  }
   if (p && (!last || p[0] !== last[0] || p[1] !== last[1])) {
     await page.mouse.move(p[0], p[1])
     await page.evaluate((x, y, show) => {
@@ -205,6 +247,10 @@ for (let f = 0; f < timeline.length; f++) {
     last = p
   }
   await step(1000 / FPS)
+  // PROBE_AT=<seconds> PROBE_JS=<expression>: print a page value at that moment.
+  if (process.env.PROBE_AT && Math.abs(f / FPS - +process.env.PROBE_AT) < 0.5 / FPS) {
+    console.log('\nPROBE', JSON.stringify(await page.evaluate(process.env.PROBE_JS)))
+  }
   const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true })
   if (!ff.stdin.write(Buffer.from(data, 'base64'))) await new Promise((r) => ff.stdin.once('drain', r))
   if (f % FPS === 0) process.stdout.write(`\r${(f / FPS).toFixed(0)}s / ${(timeline.length / FPS).toFixed(1)}s`)

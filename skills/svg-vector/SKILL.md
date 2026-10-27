@@ -24,7 +24,7 @@ from convex solids.
 | `reference/render.mjs` | `node render.mjs scene.mjs [--theme light] [--out x.svg]` |
 | `reference/gallery.mjs` | `node gallery.mjs out.html [--big] [--only a,b] [--row a,b,c]`: examples in both themes with motion live; `--row` lays them out as a Linear feature row (FIG label, art, title, text). Use it to check work. |
 | `reference/IsoFigure.tsx` | Next.js mount: SVG string plus client motion. |
-| `reference/tools/record.mjs` | A demo video: a title card, then the figures in a grid while a scripted cursor hovers each. Frame-exact (an injected clock drives rAF, CSS and Web Animations), piped into ffmpeg. Needs `puppeteer-core` and ffmpeg; usage at the top of the file. Scenes can export `targets` (world points per item) for the cursor. |
+| `reference/tools/record.mjs` | A demo video: a title card, then the figures. Default `--layout sequence` is square (1080x1080) and shows one figure at a time: it fades in, a scripted cursor plays its gesture, it fades out. `--layout grid` is 16:9 with all figures at once. `PROBE_AT`/`PROBE_JS` print a page value at a moment, for debugging. Frame-exact (an injected clock drives rAF, CSS and Web Animations), piped into ffmpeg. Needs `puppeteer-core` and ffmpeg; usage at the top of the file. Scenes can export `targets` (world points per item) for the cursor. |
 | `reference/linear-notes.md` | The reverse engineering: paths, palette, CSS, constants. |
 
 ## 1. The look (keep all of these)

@@ -174,8 +174,9 @@ function hitLayer(svg, items) {
     if (!src) continue
     const h = src.cloneNode()
     h.removeAttribute('class')
+    // A transparent fill is still hit-testable, and leaving pointer-events
+    // unset lets a hidden ancestor (pointer-events: none) switch it off.
     h.setAttribute('fill', 'transparent')
-    h.style.pointerEvents = 'all'
     const i = items.indexOf(g)
     if (i >= 0) h.dataset.i = i; else h.dataset.block = ''
     layer.appendChild(h)
