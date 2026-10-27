@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // node tools/record.mjs out.mp4 [--layout sequence|grid] [--size 1080x1080]
-//   [--scenes a,b,c] [--title "SVG Vector Skill"] [--theme light|dark] [--fps 60] [--music]
+//   [--scenes a,b,c] [--title "SVG Vector Skill"] [--byline "by raha"] [--theme light|dark]
+//   [--fps 60] [--music]
 //
 // A demo video: a title card, then the figures. `sequence` (default, square)
 // shows one figure at a time, full frame: it fades in, the cursor plays its
@@ -32,6 +33,7 @@ const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const out = resolve(args.find((a) => a.endsWith('.mp4')) || 'svg-vector.mp4')
 const scenes = opt('--scenes', 'triage,command,rack,sync,insights,earth').split(',').map((s) => s.replace(/\.mjs$/, '') + '.mjs')
 const title = opt('--title', 'SVG Vector Skill')
+const byline = opt('--byline', '') // a second, quieter line under the title
 const themeName = opt('--theme', 'light')
 const FPS = +opt('--fps', 60)
 const layout = opt('--layout', 'sequence')
@@ -41,8 +43,8 @@ const TITLE_END = 3.1 // the title card owns the opening seconds
 
 // The page palette. Light is raha.site's paper and ink.
 const PAGE = themeName === 'dark'
-  ? { bg: '#08090A', fg: '#F7F8F8', rule: '#1c1d20', theme: 'dark' }
-  : { bg: '#FDFDFC', fg: '#26241F', rule: '#ECEBE8', theme: { bg: '#FDFDFC', hi: '#26241F', mid: '#8E887E', lo: '#CFCAC1', faint: '#E5E1DA', dot: '#26241F' } }
+  ? { bg: '#08090A', fg: '#F7F8F8', muted: '#8A8F98', rule: '#1c1d20', theme: 'dark' }
+  : { bg: '#FDFDFC', fg: '#26241F', muted: '#7A746A', rule: '#ECEBE8', theme: { bg: '#FDFDFC', hi: '#26241F', mid: '#8E887E', lo: '#CFCAC1', faint: '#E5E1DA', dot: '#26241F' } }
 
 // ------------------------------------------------------------- the stage
 const mods = {}
@@ -73,15 +75,16 @@ figure{position:absolute;inset:0;margin:0;display:grid;place-items:center;opacit
 figure.on{opacity:1;pointer-events:auto;filter:none}
 figure:not(.on) *{pointer-events:none!important}
 figure svg{width:72%;height:auto;max-height:72%}`}
-.title{position:absolute;inset:0;display:grid;place-items:center;background:${PAGE.bg};animation:hide .6s cubic-bezier(.77,0,.175,1) 2.3s forwards}
+.title{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:${layout === 'grid' ? 30 : 26}px;background:${PAGE.bg};animation:hide .6s cubic-bezier(.77,0,.175,1) 2.3s forwards}
 .title h1{margin:0;font:500 ${layout === 'grid' ? 112 : 96}px/1 Inter,system-ui,sans-serif;letter-spacing:-.045em;color:${PAGE.fg};filter:blur(14px);opacity:0;transform:translateY(10px);animation:blurin .9s cubic-bezier(.22,.61,.36,1) .25s forwards}
+.title p{margin:0;font:500 ${layout === 'grid' ? 38 : 34}px/1 Inter,system-ui,sans-serif;letter-spacing:-.02em;color:${PAGE.muted};filter:blur(10px);opacity:0;transform:translateY(8px);animation:blurin .9s cubic-bezier(.22,.61,.36,1) .55s forwards}
 @keyframes blurin{to{filter:blur(0);opacity:1;transform:none}}
 @keyframes hide{to{opacity:0;visibility:hidden}}
 @keyframes show{to{opacity:1}}
 #cursor{position:absolute;left:0;top:0;width:30px;height:30px;pointer-events:none;opacity:0;z-index:9;will-change:transform}
 </style>
 <div class="grid">${cells}</div>
-<div class="title"><h1>${title}</h1></div>
+<div class="title"><h1>${title}</h1>${byline ? `<p>${byline}</p>` : ''}</div>
 <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2.5 4 19.5 8.6 15.4 11.6 22 14.6 20.7 11.7 14.2 18 14.2Z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
 <script type="module">
 ${engine}
