@@ -1,9 +1,9 @@
 ---
-name: webgl-form
-description: Build a Stripe-style hero wave in Three.js r178: stripe.com's own folded sheet (a plane folded in two, thick with a round edge), on the settings stripe.com ships, with Stripe's unlit shading (a palette painted along the sheet, long silky streaks, a pale underside), big and cropped by its frame, every part drifting on its own noise. Use whenever the user asks for a 3D hero visual, a "Stripe wave", a shader ribbon, a WebGL model or shape, or wants hero art for an idea or brand. Input is the meaning, never a shape: ask for what the product does (one sentence), the brand colours, and where the art sits; with no prompt, read the colours from the code and use Stripe's light-hero wave. The idea changes the wave's colour, crop and settings, never its form.
+name: silk
+description: Silk. Build a Stripe-style hero wave in Three.js r178: stripe.com's own folded sheet (a plane folded in two, thick with a round edge), on the settings stripe.com ships, with Stripe's unlit shading (a palette painted along the sheet, long silky streaks, a pale underside), big and cropped by its frame, every part drifting on its own noise. Use whenever the user asks for a 3D hero visual, a "Stripe wave", a shader ribbon, a WebGL model or shape, or wants hero art for an idea or brand. Input is the meaning, never a shape: ask for what the product does (one sentence), the brand colours, and where the art sits; with no prompt, read the colours from the code and use Stripe's light-hero wave. The idea changes the wave's colour, crop and settings, never its form.
 ---
 
-# WebGL form
+# Silk
 
 The form is **the wave**: stripe.com's folded sheet, as stripe.com draws it.
 The user's verdict after many attempts: "I only like the Wave because it's
