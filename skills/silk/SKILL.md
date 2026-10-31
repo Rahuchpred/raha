@@ -1,6 +1,14 @@
 ---
 name: silk
-description: Silk. Build a Stripe-style hero wave in Three.js r178: stripe.com's own folded sheet (a plane folded in two, thick with a round edge), on the settings stripe.com ships, with Stripe's unlit shading (a palette painted along the sheet, long silky streaks, a pale underside), big and cropped by its frame, every part drifting on its own noise. Use whenever the user asks for a 3D hero visual, a "Stripe wave", a shader ribbon, a WebGL model or shape, or wants hero art for an idea or brand. Input is the meaning, never a shape: ask for what the product does (one sentence), the brand colours, and where the art sits; with no prompt, read the colours from the code and use Stripe's light-hero wave. The idea changes the wave's colour, crop and settings, never its form.
+description: >-
+  Silk. Puts a Stripe-style 3D hero wave on any page, in Three.js r178:
+  stripe.com's own folded silk sheet, unlit, with long silky streaks, big and
+  cropped by its frame, every part drifting slowly. Use whenever someone wants
+  a 3D hero visual, a "Stripe wave", a silk or ribbon background, a WebGL
+  hero, or hero art for a landing page or brand, even if they never say
+  "Silk". Works with no prompt: it reads the colours and the page from the
+  code, builds one wave in place, and is steered afterwards in plain words
+  ("black", "vertical", "calmer", "on a dark page").
 ---
 
 # Silk
@@ -19,33 +27,75 @@ crop and settings.
 | `reference/twist-ribbon.js`, `reference/nib-ribbon.ts` | Older plain WebGL2 ribbons (OpenRouter, OpenEvidence). Only for projects that already run them. |
 | `reference/ReactMount.tsx` | React/Next mount with fallback. |
 
-## 0. What to ask for
+## 0. Just build it
 
-The prompt carries **meaning, never a shape**. Shapes were the failure: every
-named form built literally (a Mobius ring, a knot, a spring, a tornado)
-came out as 3D clip art. The OpenRouter ribbon worked because the meaning
-("many models in, one endpoint out") became settings (where the sheet
-turns edge-on), not a drawing of the product.
+Someone using Silk should not have to know presets, palettes or settings.
+**Build one wave, in place, without questions.** Everything the wave needs
+can be read from the project or defaulted; ask only when the answer is
+truly nowhere (no code, no colours, no page) and even then build the
+default first and ask after.
 
-**Ask for at most three things, in one message:**
+**Read, in this order, and use what you find:**
 
-1. **The idea**, in one sentence: what the product does, or the one thing the
-   art should say. ("Every model through one endpoint.")
-2. **The colours**: the brand's, or "read them from the code" (the tokens in
-   `globals.css`, a Tailwind theme, the logo's colours).
-3. **Where it sits**: a hero band (under or around copy), a cell, a card; a
-   light or a dark page.
+| What | Where to read it | When nothing is there |
+|---|---|---|
+| Where it goes | The hero or the section the user named; the first full-width section on the landing page | A full-width hero band, 640px tall |
+| Light or dark page | The section's background token | Light |
+| Colours | The user's words ("black", "our blue"), then brand tokens (`globals.css`, Tailwind theme, CSS variables), then the logo | Stripe's light-hero palette (`WARM`) |
+| Horizontal or vertical | The user's words, then the frame: a tall frame (a phone story, a side panel, a portrait card) is `vertical` | `horizontal` |
+| The feel | What the product does, from the README, page copy or the user's words, mapped with the table below | `wave` |
 
-**No prompt at all** is a valid use: read the colours from the code, use the
-`wave` preset in Stripe's light-hero placement, and say so in one line.
+"Black" alone means `ink` on the page as it is (white, unless the page is
+dark); "black on black" or a dark page means `night` on a `#000` ground.
 
-**A named shape** ("make a tornado"): do not build the shape. Read it as a
-hint about meaning (a tornado: rising, rotation, force) and map that to the
-settings below. Tell the user in one line that the skill keeps the wave and
-why. If they still insist, build the shape as one extra take beside the
-waves, labelled, so they can compare.
+**Setting it up.** Install `three@0.178.0`, copy `reference/stripe-three.js`
+next to the page's other client code (in Next, a client component's folder;
+in plain HTML, beside the page), and mount it on a canvas that fills the
+section:
 
-**From meaning to settings** (starting points, not rules):
+```js
+import { createFigure, PALETTES, palette } from "./stripe-three.js";
+
+// preset, then overrides: a named palette, or the brand's own colours
+createFigure(canvas, "wave", { ...PALETTES.ink, orient: "horizontal" });
+createFigure(canvas, "wave", palette(
+  [[0, "#0a2540"], [0.5, "#635bff"], [1, "#00d4ff"]], // along the length
+  "#c9d4ff",                                          // tint at the open edges
+  ["#635bff", "#00d4ff"],                             // faint blotches
+));
+```
+
+Plain HTML loads three with an import map
+(`"three": "/node_modules/three/build/three.module.js"`). In React and Next,
+call `createFigure` in a client component's `useEffect`, inside a
+`try/catch` that leaves a still image of the wave when WebGL is missing,
+and call the returned `stop()` on unmount; `reference/ReactMount.tsx` shows
+that pattern for the older ribbon.
+
+**One result, not a choice.** The default output is **one** wave in the
+user's page, then one line saying what was picked and how to change it:
+"Silk: the light-hero wave in your navy and teal, horizontal. Say
+*black*, *vertical*, *calmer* or *on a dark page* to change it." Build
+**two or three takes on a takes page only when the user asks** for options,
+versions or alternatives.
+
+**Steer in plain words.** After the first wave, map the user's words to
+settings; never ask them to pick a preset:
+
+| They say | Change |
+|---|---|
+| A colour or "black", "mono", "brand colours" | The palette (section 4); keep the preset |
+| "vertical", "portrait", "for a story", "horizontal" | `orient` (section 1) |
+| "calmer", "slower" | `deep`, pace 4e-5 |
+| "more energy", "faster" | `petal` or `fold`, pace up to 8e-5 |
+| "bigger", "more cropped", "smaller" | Scale and position only |
+| "dark page", "light page" | The page ground; a dark ground keeps the wave's pale face, which reads as a sheen |
+| A shape ("a tornado", "a knot") | Keep the wave. Read the shape as a feel (a tornado: rising, force) and map it with the table below; say so in one line. Build the shape only if they insist, as a second take beside the wave |
+
+**From meaning to settings** (starting points, not rules). The meaning
+changes settings, never the form: the OpenRouter ribbon worked because
+"many models in, one endpoint out" became where the sheet turns edge-on,
+not a drawing of the product.
 
 | The idea feels | Start from | Change |
 |---|---|---|
@@ -54,9 +104,6 @@ waves, labelled, so they can compare.
 | Energy, real time, speed | `petal` or `fold` | Pace up to 8e-5, warm palette |
 | Change, two sides, a turnaround | `turn` | The roll-over shows both faces |
 | Nothing specific | `wave` | Brand palette only |
-
-**Output:** two or three takes on a takes page, the same wave family in
-different presets, crops or palettes. The user picks one; delete the rest.
 
 ## 1. The form
 
@@ -78,6 +125,13 @@ different presets, crops or palettes. The user picks one; delete the rest.
   orthographic camera at `(100, 0, 5000)` turned 0.02 rad about y; every
   number scales by `canvas width / 1392`. **Always big and cropped by its
   frame**, never small and floating.
+- **Orientation**: `orient: "horizontal"` (the default) lays the wave out
+  across the frame's width. `orient: "vertical"` turns the camera a quarter
+  so the wave runs top to bottom and is sized to the frame's height: use it
+  for tall frames (a 9:16 story, a side panel, a portrait card), where a
+  horizontal wave shrinks to a strip. `orient: "auto"` picks by the frame's
+  shape, for a canvas that changes from wide to tall. Same wave either way;
+  only the camera turns.
 - Pace: Stripe's clock, `4e-5` to `8e-5` per millisecond. Slow on purpose.
 
 ## 2. The five waves that work
@@ -139,9 +193,17 @@ one flat colour over most of the visible sheet):
   fading out by u = 0.22 from each side): lavender `#a9b6ff` for the light
   hero.
 - **A few faint blotches** (14, at 25%) only to vary it.
-- The engine's `palette(along, edge, blobs)` builds this. Other working sets:
-  ocean (blue to cyan), dusk (orange, pink, violet), lime (teal, green,
-  yellow, orange), ember (pink, red, orange, yellow).
+- The engine's `palette(along, edge, blobs)` builds this; `PALETTES` holds
+  the working sets by name: `warm` (the light hero), `ocean` (blue to cyan),
+  `dusk` (orange, pink, violet), `lime` (teal, green, yellow, orange),
+  `ember` (pink, red, orange, yellow), and two blacks:
+  - `ink`: black silk for a white page, charcoal at the ends to near black
+    mid-length, a grey edge tint. The streaks read as satin.
+  - `night`: black on a black page (`#000` ground), `blueDim: 0`. The pale
+    other face reads as a silver sheen and carries the form.
+- **Pure neutrals only for black.** A blue-grey "graphite" was rejected: it
+  "doesn't really mimic 3D" and reads flat. Keep blacks neutral, or use a
+  real brand colour.
 - The colour is the brand's, or Stripe-like. Decorative, never data.
 
 ## 5. Placement in the page
@@ -203,16 +265,21 @@ Rules:
 
 ## 7. Workflow
 
-1. Get the input (section 0): the idea, the colours, the place. No prompt:
-   colours from the code, the `wave` preset. Map the idea to a preset, a
-   crop and a palette; never to a new shape.
-2. Compare against the real thing: screenshot stripe.com's hero at
-   1440x900, render ours in a canvas at Stripe's exact frame (1392 x 761 at
-   x 337), and compare the two at the same crop. Texture and colour are
-   judged this way, not from memory.
+1. Read the project (section 0) and build **one** wave in place: the colours,
+   the page, the orientation and the feel from the code, the defaults for
+   anything missing. Say in one line what was picked and how to steer it.
+   Never a new shape.
+2. Check it, every time: the console is clean, the canvas is built, and a
+   screenshot shows the wave big and cropped by its frame, at desktop and
+   phone width. That is enough for an ordinary request.
+   **Only when tuning the engine or a new preset**, compare against the real
+   thing: screenshot stripe.com's hero at 1440x900, render ours in a canvas
+   at Stripe's exact frame (1392 x 761 at x 337), and compare the two at the
+   same crop. Texture and colour are judged this way, not from memory.
 3. For a page of several waves, use the presets above, re-placed to fit
-   each frame; show alternatives on a takes page.
-4. Verify at full size (headless Chrome): console clean and every canvas
+   each frame. A takes page of alternatives only when the user asks for
+   options.
+4. When tuning, verify at full size (headless Chrome): console clean and every canvas
    built; 1440 and 375; two frames four seconds apart compared per quarter
    (uneven change: parts moving; even change: a spin); the wave fills its
    frame.
@@ -234,6 +301,8 @@ Rules:
 - Travelling light lines: "it was only an OpenRouter thing, here we imitate
   Stripe".
 - A small wave floating in the middle of its frame.
+- Two or three takes by default. One wave in place; options only on request.
+- A blue-grey graphite palette: it reads flat, not 3D.
 - Ordinary alpha blending on anything see-through: seams.
 - Drawn lines, node-and-wire diagrams, grid lines, labels or counts in the
   art; a wave reaching under the nav.

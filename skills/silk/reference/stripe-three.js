@@ -339,6 +339,16 @@ const OCEAN = { ...palette([[0, "#1f3fff"], [0.3, "#3f7bff"], [0.55, "#3fb4ff"],
 const DUSK = palette([[0, "#ff9a3d"], [0.3, "#ff4fa8"], [0.6, "#c35cff"], [0.85, "#7a5cff"], [1, "#9fb6ff"]], "#ffd0a8", ["#ff4fa8", "#c35cff", "#ff9a3d", "#7a5cff"]);
 const LIME = palette([[0, "#00b8a3"], [0.3, "#3fd69a"], [0.55, "#b7e85a"], [0.8, "#ffd36b"], [1, "#ff8a3d"]], "#9fe8ff", ["#00c2a8", "#6fe3a1", "#ffd36b", "#ff8a3d"]);
 const EMBER = palette([[0, "#ff4f8b"], [0.3, "#ff5a3c"], [0.6, "#ff8a3d"], [0.85, "#ffc24b"], [1, "#ffe08a"]], "#ffb3c8", ["#ff5a3c", "#ff8a3d", "#ffc24b", "#ff4f8b"]);
+// Black, kept neutral (a blue-grey graphite read flat). INK is black silk
+// for a white page; NIGHT is for a black page, where the pale other face
+// reads as a silver sheen.
+const INK = palette([[0, "#2a2a2a"], [0.3, "#121212"], [0.6, "#050505"], [0.85, "#141414"], [1, "#2e2e2e"]], "#3c3c3c", ["#000000", "#1c1c1c", "#0a0a0a"]);
+const NIGHT = { ...palette([[0, "#060606"], [0.35, "#141414"], [0.65, "#202020"], [1, "#0c0c0c"]], "#4a4a4a", ["#000000", "#262626", "#111111"]), blueDim: 0 };
+
+// The working palettes by name, to pass as overrides:
+// createFigure(canvas, "wave", PALETTES.ink). For brand colours, build one
+// with palette(along, edge, blobs).
+export const PALETTES = { warm: WARM, ocean: OCEAN, dusk: DUSK, lime: LIME, ember: EMBER, ink: INK, night: NIGHT };
 
 const P = Math.PI;
 
@@ -400,6 +410,7 @@ const DEFAULTS = {
   alpha: 1,
   blueDim: 0.9,
   shading: "stripe",
+  orient: "horizontal", // "vertical" runs the wave top to bottom; "auto" follows the frame
   glow: [1.98, 0.806, 0.834],
   streak: 0.26,
   gradient: null,
@@ -496,14 +507,17 @@ export function createFigure(canvas, name, overrides = {}) {
     post.uniforms.uRes.value.set(w * dpr, h * dpr);
     uniforms.uRes.value.set(w * dpr, h * dpr);
     // Stripe lays its scene out for a 1392px canvas; scale it to this one,
-    // so the sheet stays big and cropped at any size
-    const k = w / 1392;
+    // so the sheet stays big and cropped at any size. In a tall frame the
+    // camera turns a quarter, so the wave runs top to bottom and is sized to
+    // the height instead of shrinking to a strip across the middle.
+    const tall = fig.orient === "vertical" || (fig.orient === "auto" && h > w);
+    const k = (tall ? h : w) / 1392;
     camera.left = -w / 2;
     camera.right = w / 2;
     camera.top = h / 2;
     camera.bottom = -h / 2;
     camera.position.set(100 * k, 0, 5000);
-    camera.rotation.set(0, 0.02, 0);
+    camera.rotation.set(0, 0.02, tall ? P / 2 : 0);
     camera.updateProjectionMatrix();
     mesh.scale.set(fig.scale[0] * k, fig.scale[1] * k, fig.scale[2] * k);
     mesh.position.set(fig.position[0] * k, fig.position[1] * k, fig.position[2] * k);
@@ -569,4 +583,4 @@ export function createFigure(canvas, name, overrides = {}) {
   return { stop };
 }
 
-export { turn, DIAG_XZ, DIAG_YZ, LENGTH, WIDTH, THICK, STRIPE_TURNS, STRIPE_PLACE, STRIPE_DISPLACE };
+export { palette, turn, DIAG_XZ, DIAG_YZ, LENGTH, WIDTH, THICK, STRIPE_TURNS, STRIPE_PLACE, STRIPE_DISPLACE };

@@ -10,11 +10,16 @@ Agent skills I wrote for Claude Code. Each one records every correction I had to
 
 ## Install
 
-Copy a skill's folder into `~/.claude/skills/`:
+Install one skill with its name:
 
 ```bash
-git clone https://github.com/Rahuchpred/raha.git
-cp -R raha/skills/grid ~/.claude/skills/
+npx skills add Rahuchpred/raha --skill silk
+```
+
+Or all of them:
+
+```bash
+npx skills add Rahuchpred/raha
 ```
 
 Each skill is its `SKILL.md` plus a `reference/` folder of working code it points to.
