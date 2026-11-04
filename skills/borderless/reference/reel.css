@@ -1,0 +1,151 @@
+/* The animated before and after, for demos and posts. Never product UI.
+
+   Markup: every box that has a line in the "before" carries an inline svg
+   as its first child, and its cascade slot in reading order as --i:
+
+     <div class="box chip" style="--i: 3">
+       <svg class="edge" aria-hidden="true"><rect pathLength="1" /></svg>
+       <span class="tag">1px</span>        (optional, on a few boxes)
+       ...content...
+     </div>
+
+   A box whose line does a job also gets .keep (its tag reads "keep").
+   A box that carried a drop shadow in the "before" gets .lift.
+   What a box becomes once its line is gone is its kind: .sheet (a grey
+   surface), .chip (white), .fill (light grey), .ink (solid). A box with
+   no kind becomes nothing.
+
+   The root carries the phase, set from script on a loop:
+     data-look="border" | "fill"   and   data-mark (present in review)
+   Loop: border 1.9s, then mark 1.5s, then fill 4s, then back. Under
+   prefers-reduced-motion, do not loop; swap on a button.
+
+   The counter is the page's own type, in the caption under the frame:
+   each non-kept line counts as gone at (i * step + reel / 2) ms. */
+
+.root {
+  --n: 11;          /* boxes on the board */
+  --step: 64ms;     /* stagger between them */
+  --reel: 760ms;    /* one line reeling in */
+}
+
+.box {
+  --r: 14px;        /* a real radius; a pill is half its height, never 999px */
+  --d: calc((var(--n) - 1 - var(--i)) * 28ms);
+  --after: calc(var(--d) + var(--reel) * 0.45);
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r);
+}
+
+.root[data-mark] .box { --d: calc(var(--i) * var(--step)); }
+
+/* The surface, fading up as the line finishes leaving. */
+.box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.root[data-look="fill"] .box::before { opacity: 1; transition: opacity 560ms ease var(--after); }
+.sheet::before { background: #f4f4f5; }
+.chip::before { background: #fff; }
+.fill::before { background: #e9e9eb; }
+.ink::before { background: #0b0b0c; }
+.box:not(.sheet, .chip, .fill, .ink)::before { display: none; }
+
+/* The "before" drop shadow, leaving with the line. Plain grey: no glow. */
+.lift::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%), 0 8px 20px rgb(0 0 0 / 10%);
+  transition: opacity 300ms ease var(--d);
+}
+.root[data-look="fill"] .lift::after { opacity: 0; transition: opacity 520ms ease var(--d); }
+
+/* The line: a path one unit long, dashed a hair over 1 on and 1 off.
+   Shifting the dash a whole unit reels it in along its own edge; the
+   hair of overlap closes the seam where the path starts. */
+.edge {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.edge rect {
+  x: 0.5px;
+  y: 0.5px;
+  width: calc(100% - 1px);
+  height: calc(100% - 1px);
+  rx: calc(var(--r) - 0.5px);
+  fill: none;
+  stroke: #e3e3e8;
+  stroke-width: 1px;
+  stroke-dasharray: 1.01 1.01;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--reel) cubic-bezier(0.65, 0, 0.35, 1) var(--d);
+}
+
+/* The review pass. Declared only on the marked state, so the way back is
+   instant and the lines draw in grey. */
+.root[data-mark] .edge rect {
+  stroke: #ff3b30;
+  stroke-width: 2px;
+  transition:
+    stroke 200ms ease var(--d),
+    stroke-width 200ms ease var(--d),
+    stroke-dashoffset var(--reel) cubic-bezier(0.65, 0, 0.35, 1) var(--d);
+}
+.root[data-mark] .keep > .edge rect { stroke: #34c759; }
+.root[data-look="fill"] .edge rect { stroke-dashoffset: -1.01; }
+.root[data-look="fill"] .keep > .edge rect {
+  stroke: #d1d1d6;
+  stroke-width: 1px;
+  stroke-dashoffset: 0;
+  transition: stroke 400ms ease var(--after), stroke-width 400ms ease var(--after);
+}
+
+/* The verdict tag, top left of its box, in the board's own sans. */
+.tag {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  z-index: 2;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px) scale(0.85);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.keep > .tag { background: #34c759; }
+.root[data-mark] .tag {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 220ms ease var(--d),
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1) var(--d);
+}
+.root[data-look="fill"] .tag {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.85);
+  transition: opacity 180ms ease var(--d), transform 180ms ease var(--d);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root .box, .root[data-mark] .box { --d: 0ms; --reel: 0ms; }
+}
